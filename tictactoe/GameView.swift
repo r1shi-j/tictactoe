@@ -68,7 +68,7 @@ struct GameView: View {
                         .allowsHitTesting(endState == nil && !isObserving && isHumanMove && !isWaitingForAlert)
                         .overlay {
                             if endState == nil && !isObserving {
-                                Text("\(mode == .twoPlayer ? whoMoves.rawValue : (isHumanMove ? "Human" : "Computer")) move")
+                                Text("\(mode == .twoPlayer ? whoMoves.rawValue : (isHumanMove ? "Your" : "Computer")) move")
                                     .font(.system(.largeTitle, design: .serif, weight: .heavy))
                                     .offset(y: -210)
                                     .transition(.opacity)
@@ -291,6 +291,18 @@ struct GameView: View {
             }
             
             // checking corner tiles
+            // if opponent in corner then we choose opposite if empty
+            for indexPair in cornerIndexPairs.shuffled() {
+                if gameBoard[indexPair.0][indexPair.1].symbol == whoMoves.swapped() {
+                    let newIndexPair = ((indexPair.0 == 0 ? 2 : 0), (indexPair.1 == 0 ? 2 : 0))
+                    if gameBoard[newIndexPair.0][newIndexPair.1].symbol == nil {
+                        gameBoard[newIndexPair.0][newIndexPair.1].symbol = whoMoves
+                        return
+                    }
+                }
+            }
+            
+            // if opposite corner not available then choose any other corner
             for indexPair in cornerIndexPairs.shuffled() {
                 if gameBoard[indexPair.0][indexPair.1].symbol == nil {
                     gameBoard[indexPair.0][indexPair.1].symbol = whoMoves
@@ -304,7 +316,7 @@ struct GameView: View {
                 return
             }
             
-            // no strategic moves so pick a random tile
+            // should not run
             easy()
         }
         
