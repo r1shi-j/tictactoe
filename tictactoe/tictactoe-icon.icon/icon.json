@@ -1,0 +1,107 @@
+{
+  "features" : [
+    "specular-location"
+  ],
+  "fill" : {
+    "automatic-gradient" : "display-p3:0.19716,0.24853,0.96783,1.00000"
+  },
+  "groups" : [
+    {
+      "blur-material" : null,
+      "layers" : [
+        {
+          "blend-mode" : "overlay",
+          "fill-specializations" : [
+            {
+              "value" : {
+                "automatic-gradient" : "display-p3:0.39608,1.00000,0.42913,1.00000",
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.5,
+                    "y" : 0
+                  },
+                  "stop" : {
+                    "x" : 0.5,
+                    "y" : 0.7
+                  }
+                }
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "automatic-gradient" : "display-p3:0.79096,0.79096,0.79096,1.00000",
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.5,
+                    "y" : 0
+                  },
+                  "stop" : {
+                    "x" : 0.5,
+                    "y" : 0.7
+                  }
+                }
+              }
+            }
+          ],
+          "glass" : true,
+          "image-name" : "Ellipse 1 (Stroke).svg",
+          "name" : "Ellipse 1 (Stroke)",
+          "position" : {
+            "scale" : 6.22,
+            "translation-in-points" : [
+              -197.50390625,
+              0
+            ]
+          }
+        },
+        {
+          "fill-specializations" : [
+            {
+              "value" : {
+                "automatic-gradient" : "display-p3:0.96783,0.26414,0.17095,1.00000"
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "automatic-gradient" : "gray:0.55149,1.00000"
+              }
+            }
+          ],
+          "glass" : true,
+          "image-name" : "Regular-S.svg",
+          "name" : "Regular-S",
+          "position" : {
+            "scale" : 6.22,
+            "translation-in-points" : [
+              195.07490834102623,
+              2.7577453703606807
+            ]
+          }
+        }
+      ],
+      "lighting" : "combined",
+      "refractivity" : {
+        "depth" : 0,
+        "enabled" : false,
+        "strength" : 0.1558203125
+      },
+      "shadow" : {
+        "kind" : "layer-color",
+        "opacity" : 1
+      },
+      "specular" : "outside",
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.26
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
