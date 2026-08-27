@@ -18,5 +18,3 @@ struct tictactoeApp: App {
         }
     }
 }
-
-// add winning line

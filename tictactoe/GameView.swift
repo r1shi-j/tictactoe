@@ -9,12 +9,14 @@ import SwiftUI
 
 struct GameView: View {
     @State private var gameBoard: [[Tile]] = GameView.setupGameBoard()
-    @State private var whoMoves: Symbol = .cross
     @State private var whoStarts: Side
+    @State private var whoMoves: Symbol = .cross
+    @State private var turnTrigger = UUID()
     @State private var endState: EndState?
     @State private var isObserving = false
-    @State private var turnTrigger = UUID()
     @State private var isWaitingForAlert = false
+    @State private var winningLine: [(Int, Int)]? = nil
+    @State private var lineProgress: CGFloat = 0.0
     let mode: GameMode
     @Environment(Stats.self) private var stats
     
@@ -38,6 +40,9 @@ struct GameView: View {
                 return whoMoves != .cross
         }
     }
+    
+    private let tileSize: CGFloat = 100
+    private let tileSpacing: CGFloat = 20
     
     private let winnableIndexPairs = [
         [(0,0), (1,0), (2,0)],
@@ -107,13 +112,13 @@ struct GameView: View {
     }
     
     private func grid() -> some View {
-        Grid(alignment: .center, horizontalSpacing: 20, verticalSpacing: 20) {
+        Grid(alignment: .center, horizontalSpacing: tileSpacing, verticalSpacing: tileSpacing) {
             ForEach(0..<3) { row in
                 GridRow(alignment: .center) {
                     ForEach(0..<3) { col in
                         ZStack {
                             Rectangle()
-                                .frame(width: 100, height: 100)
+                                .frame(width: tileSize, height: tileSize)
                                 .foregroundStyle(mode.gridForeground)
                             if let symbol = gameBoard[row][col].symbol {
                                 Image(symbol.rawValue.lowercased())
@@ -135,6 +140,54 @@ struct GameView: View {
             }
         }
         .background(mode.gridBackground)
+        .overlay {
+            winningLineOverlay()
+        }
+    }
+    
+    private func winningLineOverlay() -> some View {
+        GeometryReader { _ in
+            if let line = winningLine, let endpoints = lineBoundaryPoints(for: line) {
+                Path { path in
+                    path.move(to: endpoints.start)
+                    path.addLine(to: endpoints.end)
+                }
+                .trim(from: 0, to: lineProgress)
+                .stroke(mode.primaryColor.gradient, style: StrokeStyle(lineWidth: 12, lineCap: .square))
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        lineProgress = 1.0
+                    }
+                }
+            }
+        }
+    }
+    
+    private func lineBoundaryPoints(for line: [(Int, Int)]) -> (start: CGPoint, end: CGPoint)? {
+        guard let first = line.first, let last = line.last else { return nil }
+        
+        let totalSize: CGFloat = 3*tileSize + 2*tileSpacing
+        let inset: CGFloat = 10
+        
+        if first.0 == last.0 {
+            let y = (CGFloat(first.0) * (tileSize+tileSpacing)) + (tileSize/2)
+            return (CGPoint(x: inset, y: y), CGPoint(x: totalSize - inset, y: y))
+        }
+        
+        if first.1 == last.1 {
+            let x = (CGFloat(first.1) * (tileSize+tileSpacing)) + (tileSize/2)
+            return (CGPoint(x: x, y: inset), CGPoint(x: x, y: totalSize - inset))
+        }
+        
+        if first == (0, 0) && last == (2, 2) {
+            return (CGPoint(x: inset, y: inset), CGPoint(x: totalSize - inset, y: totalSize - inset))
+        }
+        
+        if first == (0, 2) && last == (2, 0) {
+            return (CGPoint(x: totalSize - inset, y: inset), CGPoint(x: inset, y: totalSize - inset))
+        }
+        
+        return nil
     }
     
     private static func setupGameBoard() -> [[Tile]] {
@@ -149,13 +202,15 @@ struct GameView: View {
     }
     
     private func resetGame() {
+        withAnimation(.easeInOut(duration: 0.1)) { lineProgress = 0 }
         gameBoard = GameView.setupGameBoard()
-        whoMoves = .cross
         whoStarts = (mode == .twoPlayer) ? .human : Side.allCases.randomElement()!
+        whoMoves = .cross
+        turnTrigger = UUID()
         endState = nil
         isObserving = false
-        turnTrigger = UUID()
         isWaitingForAlert = false
+        winningLine = nil
     }
     
     private func computerMove() {
@@ -270,6 +325,8 @@ struct GameView: View {
             }
             let symbolsM = symbols.compactMap(\.symbol)
             if symbolsM.count == 3, Set(symbolsM).count == 1 {
+                winningLine = indexPairs
+                
                 isWaitingForAlert = true
                 Task {
                     try? await Task.sleep(for: .milliseconds(300))
@@ -283,7 +340,6 @@ struct GameView: View {
                         }
                     }
                 }
-                // TODO: draw winning line
                 return true
             }
         }
