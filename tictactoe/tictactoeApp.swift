@@ -20,4 +20,3 @@ struct tictactoeApp: App {
 }
 
 // add winning line
-// add animations

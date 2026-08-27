@@ -13,6 +13,8 @@ struct GameView: View {
     @State private var whoStarts: Side
     @State private var endState: EndState?
     @State private var isObserving = false
+    @State private var turnTrigger = UUID()
+    @State private var isWaitingForAlert = false
     let mode: GameMode
     @Environment(Stats.self) private var stats
     
@@ -58,38 +60,27 @@ struct GameView: View {
                 mode.viewBackground.ignoresSafeArea()
                 VStack {
                     grid()
+                        .allowsHitTesting(endState == nil && !isObserving && isHumanMove && !isWaitingForAlert)
                         .overlay {
                             if endState == nil && !isObserving {
                                 Text("\(mode == .twoPlayer ? whoMoves.rawValue : (isHumanMove ? "Human" : "Computer")) move")
                                     .font(.system(.largeTitle, design: .serif, weight: .heavy))
                                     .offset(y: -210)
+                                    .transition(.opacity)
                             }
                         }
+                        .animation(.easeInOut(duration: 0.3), value: endState == nil && !isObserving)
                 }
             }
-            .task(id: !isHumanMove) {
-                guard !isHumanMove else { return }
+            .task(id: turnTrigger) {
+                guard !isHumanMove, endState == nil && !isObserving && !isWaitingForAlert else { return }
                 
-                try? await Task.sleep(for: .milliseconds(500))
-                
-                computerMove()
-                if checkForWin() { return }
-                if checkForDraw() { return }
-                whoMoves.swap()
+                try? await Task.sleep(for: .milliseconds(500)) // wait 0.5s
+                computerMove() // place move
+                if checkForWin() || checkForDraw() { return } // check for win or draw
+                whoMoves.swap() // game not ended so swap move
+                turnTrigger = UUID() // reset computer move trigger
             }
-//            .onAppear {
-//                guard mode != .twoPlayer else { return }
-//                if whoStarts == .computer {
-////                    withAnimation {
-//                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-//                        
-//                            computerMove()
-//                            whoMoves.swap()
-//                        }
-////                    }
-//                }
-//            }
-            .allowsHitTesting(!isObserving && isHumanMove)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .title) {
@@ -98,23 +89,18 @@ struct GameView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Reset", systemImage: "arrow.trianglehead.counterclockwise") {
-//                        withAnimation {
-                            isObserving = false
-                            resetGame()
-//                        }
+                        resetGame()
                     }
+                    .disabled(isWaitingForAlert)
                 }
             }
             .alert(endState == .draw ? "Draw" : "\(mode == .twoPlayer ? whoMoves.rawValue : (isHumanMove ? "Human" : "Computer")) won", item: $endState) { _ in
                 Button("Observe", role: .close) {
-//                    withAnimation {
-                        isObserving = true
-//                    }
+                    isWaitingForAlert = false
+                    isObserving = true
                 }
                 Button("New Game", role: .confirm) {
-//                    withAnimation {
-                        resetGame()
-//                    }
+                    resetGame()
                 }
             }
         }
@@ -134,30 +120,15 @@ struct GameView: View {
                                     .resizable()
                                     .frame(width: symbol.length, height: symbol.length)
                                     .foregroundStyle(mode.iconForeground)
-                                    .transition(.scale(scale: 0.9))
                             }
                         }
                         .onTapGesture {
                             // check if already occupied
                             guard gameBoard[row][col].symbol == nil else { return }
-//                            withAnimation {
-                                gameBoard[row][col].symbol = whoMoves // place move
-                                if checkForWin() { return } // check for win
-                                if checkForDraw() { return } // check for draw
-                                whoMoves.swap() // game not ended so swap move
-//                            }
-                            
-                            // if computer then go
-//                            guard mode != .twoPlayer else { return }
-////                            withAnimation {
-//                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-//                                
-//                                    computerMove()
-//                                    if checkForWin() { return }
-//                                    if checkForDraw() { return }
-//                                    whoMoves.swap()
-//                                }
-//                            }
+                            gameBoard[row][col].symbol = whoMoves // place move
+                            if checkForWin() || checkForDraw() { return } // check for win or draw
+                            whoMoves.swap() // game not ended so swap move
+                            turnTrigger = UUID() // reset computer move trigger
                         }
                     }
                 }
@@ -180,18 +151,11 @@ struct GameView: View {
     private func resetGame() {
         gameBoard = GameView.setupGameBoard()
         whoMoves = .cross
-        whoStarts = Side.allCases.randomElement()!
-        
-//        guard mode != .twoPlayer else { return }
-//        if whoStarts == .computer {
-////            withAnimation {
-//            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-//                
-//                    computerMove()
-//                    whoMoves.swap()
-//                }
-////            }
-//        }
+        whoStarts = (mode == .twoPlayer) ? .human : Side.allCases.randomElement()!
+        endState = nil
+        isObserving = false
+        turnTrigger = UUID()
+        isWaitingForAlert = false
     }
     
     private func computerMove() {
@@ -306,12 +270,17 @@ struct GameView: View {
             }
             let symbolsM = symbols.compactMap(\.symbol)
             if symbolsM.count == 3, Set(symbolsM).count == 1 {
-                endState = .win(whoMoves)
-                if mode != .twoPlayer {
-                    if isHumanMove {
-                        stats.wins += 1
-                    } else {
-                        stats.losses += 1
+                isWaitingForAlert = true
+                Task {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    
+                    endState = .win(whoMoves)
+                    if mode != .twoPlayer {
+                        if isHumanMove {
+                            stats.wins += 1
+                        } else {
+                            stats.losses += 1
+                        }
                     }
                 }
                 // TODO: draw winning line
@@ -324,8 +293,13 @@ struct GameView: View {
     private func checkForDraw() -> Bool {
         let allValues = gameBoard.flatMap({ $0 }).compactMap(\.symbol)
         if allValues.count == 9 {
-            endState = .draw
-            stats.draws += 1
+            isWaitingForAlert = true
+            Task {
+                try? await Task.sleep(for: .milliseconds(300))
+                
+                endState = .draw
+                stats.draws += 1
+            }
             return true
         }
         return false
